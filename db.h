@@ -29,6 +29,7 @@ MetaCommandResult do_meta_command(InputBuffer *input_buffer, Table *table) {
 
 PrepareResult prepare_insert(InputBuffer *input_buffer, Statement *statement) {
   statement->type = STATEMENT_INSERT;
+  statement->row_to_insert = malloc(sizeof(Row));
 
   char *keyword = strtok(input_buffer->buffer, " ");
   char *id_string = strtok(NULL, " ");
@@ -50,9 +51,9 @@ PrepareResult prepare_insert(InputBuffer *input_buffer, Statement *statement) {
     return PREPARE_STRING_TOO_LONG;
   }
 
-  statement->row_to_insert.id = id;
-  strcpy(statement->row_to_insert.username, username);
-  strcpy(statement->row_to_insert.email, email);
+  statement->row_to_insert->id = id;
+  strcpy(statement->row_to_insert->username, username);
+  strcpy(statement->row_to_insert->email, email);
 
   return PREPARE_SUCCESS;
 }
@@ -64,6 +65,7 @@ PrepareResult prepare_statement(InputBuffer *input_buffer,
   }
   if (strcmp(input_buffer->buffer, "select") == 0) {
     statement->type = STATEMENT_SELECT;
+    statement->row_to_insert = NULL;
     return PREPARE_SUCCESS;
   }
 
@@ -71,7 +73,7 @@ PrepareResult prepare_statement(InputBuffer *input_buffer,
 }
 
 ExecuteResult execute_insert(Statement *statement, Table *table) {
-  Row *row_to_insert = &(statement->row_to_insert);
+  Row *row_to_insert = statement->row_to_insert;
   uint32_t key_to_insert = row_to_insert->id;
   Cursor *cursor = table_find(table, key_to_insert);
 
