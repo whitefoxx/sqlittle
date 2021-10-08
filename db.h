@@ -58,15 +58,55 @@ PrepareResult prepare_insert(InputBuffer *input_buffer, Statement *statement) {
   return PREPARE_SUCCESS;
 }
 
+PrepareResult prepare_select(InputBuffer *input_buffer, Statement *statement) {
+  statement->type = STATEMENT_SELECT;
+  statement->row_to_insert = NULL;
+  statement->where = NULL;
+
+  char *t = strtok(input_buffer->buffer, " ");
+  bool has_where_clause = false;
+  char *column_name = NULL;
+  char *operator= NULL;
+  char *value = NULL;
+  while (t != NULL) {
+    if (has_where_clause) {
+      if (column_name == NULL) {
+        column_name = t;
+      } else if (operator== NULL) {
+        operator= t;
+      } else if (value == NULL) {
+        value = t;
+      }
+    }
+    if (strcmp(t, "where") == 0) {
+      has_where_clause = true;
+    }
+    t = strtok(NULL, " ");
+  }
+  if (has_where_clause) {
+    statement->where = malloc(sizeof(WhereClause));
+    strcpy(statement->where->column_name, column_name);
+    strcpy(statement->where->operator, operator);
+    if (value[0] == '"') {
+      statement->where->value_type = STRING;
+      statement->where->value = value;
+    } else {
+      statement->where->value_type = INT;
+      statement->where->value = malloc(sizeof(int));
+      *(int *)statement->where->value = atoi(value);
+    }
+  }
+
+  return PREPARE_SUCCESS;
+}
+
 PrepareResult prepare_statement(InputBuffer *input_buffer,
                                 Statement *statement) {
   if (strncmp(input_buffer->buffer, "insert", 6) == 0) {
     return prepare_insert(input_buffer, statement);
   }
-  if (strcmp(input_buffer->buffer, "select") == 0) {
-    statement->type = STATEMENT_SELECT;
-    statement->row_to_insert = NULL;
-    return PREPARE_SUCCESS;
+  if (strncmp(input_buffer->buffer, "select", 6) == 0) {
+    return prepare_select(input_buffer, statement);
   }
 
   return PREPARE_UNRECOGNIZED_STATEMENT;
@@ -98,11 +138,33 @@ ExecuteResult execute_select(Statement *statement, Table *table) {
   Cursor *cursor = table_start(table);
 
   Row row;
-  while (!(cursor->end_of_table)) {
-    deserialize_row(cursor_value(cursor), &row);
-    printf("page %d", cursor->page_num);
-    print_row(&row);
-    cursor_advance(cursor);
+  // select all
+  if (statement->where == NULL) {
+    while (!(cursor->end_of_table)) {
+      deserialize_row(cursor_value(cursor), &row);
+      printf("page %d", cursor->page_num);
+      print_row(&row);
+      cursor_advance(cursor);
+    }
+  } else {
+    // select with where clause
+    if (strcmp(statement->where->column_name, "id") == 0) {
+      uint32_t id = *(int *)(statement->where->value);
+      cursor = table_find(table, id);
+      void *node = get_page(table->pager, cursor->page_num);
+      uint32_t num_cells = *leaf_node_num_cells(node);
+      if (cursor->cell_num >= num_cells) {
+        printf("Not found!\n");
+      } else {
+        deserialize_row(cursor_value(cursor), &row);
+        if (row.id == id) {
+          printf("page %d", cursor->page_num);
+          print_row(&row);
+        } else {
+          printf("Not found!\n");
+        }
+      }
+    }
   }
 
   free(cursor);

@@ -13,5 +13,8 @@ clean:
 format: *.c *.h
 	clang-format-3.9 -i *.c *.h
 
-git: *.c *.h Makefile
-	git add *.c *.h Makefile
+git: *.c *.h Makefile *.py
+	git add *.c *.h Makefile *.py
+
+push:
+	git push -u origin main

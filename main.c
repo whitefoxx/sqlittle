@@ -42,6 +42,18 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
+    // Remove Later
+    // if (statement.where != NULL) {
+    //   printf("column_name: %s\n", statement.where->column_name);
+    //   printf("operator: %s\n", statement.where->operator);
+    //   if (statement.where->value_type == INT) {
+    //     printf("value: %d\n", *(int*)(statement.where->value));
+    //   } else {
+    //     printf("value: %s\n", (char*)(statement.where->value));
+    //   }
+    //   continue;
+    // }
+
     switch (execute_statement(&statement, table)) {
     case (EXECUTE_SUCCESS):
       printf("Executed.\n");
