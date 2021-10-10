@@ -9,7 +9,11 @@
 typedef enum { INT, STRING } VaulueType;
 typedef enum { FROM, WHERE, ORDER } ClauseType;
 
-typedef enum { STATEMENT_INSERT, STATEMENT_SELECT } StatementType;
+typedef enum {
+  STATEMENT_INSERT,
+  STATEMENT_SELECT,
+  STATEMENT_DELETE
+} StatementType;
 
 #define COLUMN_USERNAME_SIZE 32
 #define COLUMN_EMAIL_SIZE 255

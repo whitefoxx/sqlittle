@@ -100,6 +100,48 @@ PrepareResult prepare_select(InputBuffer *input_buffer, Statement *statement) {
   return PREPARE_SUCCESS;
 }
 
+PrepareResult prepare_delete(InputBuffer *input_buffer, Statement *statement) {
+  statement->type = STATEMENT_DELETE;
+  statement->row_to_insert = NULL;
+  statement->where = NULL;
+
+  char *t = strtok(input_buffer->buffer, " ");
+  bool has_where_clause = false;
+  char *column_name = NULL;
+  char *operator= NULL;
+  char *value = NULL;
+  while (t != NULL) {
+    if (has_where_clause) {
+      if (column_name == NULL) {
+        column_name = t;
+      } else if (operator== NULL) {
+        operator= t;
+      } else if (value == NULL) {
+        value = t;
+      }
+    }
+    if (strcmp(t, "where") == 0) {
+      has_where_clause = true;
+    }
+    t = strtok(NULL, " ");
+  }
+  if (has_where_clause) {
+    statement->where = malloc(sizeof(WhereClause));
+    strcpy(statement->where->column_name, column_name);
+    strcpy(statement->where->operator, operator);
+    if (value[0] == '"') {
+      statement->where->value_type = STRING;
+      statement->where->value = value;
+    } else {
+      statement->where->value_type = INT;
+      statement->where->value = malloc(sizeof(int));
+      *(int *)statement->where->value = atoi(value);
+    }
+  }
+
+  return PREPARE_SUCCESS;
+}
+
 PrepareResult prepare_statement(InputBuffer *input_buffer,
                                 Statement *statement) {
   if (strncmp(input_buffer->buffer, "insert", 6) == 0) {
@@ -107,6 +149,9 @@ PrepareResult prepare_statement(InputBuffer *input_buffer,
   }
   if (strncmp(input_buffer->buffer, "select", 6) == 0) {
     return prepare_select(input_buffer, statement);
+  }
+  if (strncmp(input_buffer->buffer, "delete", 6) == 0) {
+    return prepare_delete(input_buffer, statement);
   }
 
   return PREPARE_UNRECOGNIZED_STATEMENT;
@@ -123,6 +168,7 @@ ExecuteResult execute_insert(Statement *statement, Table *table) {
   if (cursor->cell_num < num_cells) {
     uint32_t key_at_index = *leaf_node_key(node, cursor->cell_num);
     if (key_at_index == key_to_insert) {
+      printf("ooops!\n");
       return EXECUTE_DUPLICATE_KEY;
     }
   }
@@ -172,12 +218,42 @@ ExecuteResult execute_select(Statement *statement, Table *table) {
   return EXECUTE_SUCCESS;
 }
 
+ExecuteResult execute_delete(Statement *statement, Table *table) {
+  Cursor *cursor = table_start(table);
+  Row row;
+  // select with where clause
+  if (strcmp(statement->where->column_name, "id") == 0) {
+    uint32_t id = *(int *)(statement->where->value);
+    cursor = table_find(table, id);
+    void *node = get_page(table->pager, cursor->page_num);
+    uint32_t num_cells = *leaf_node_num_cells(node);
+    if (cursor->cell_num >= num_cells) {
+      printf("Not found!\n");
+    } else {
+      deserialize_row(cursor_value(cursor), &row);
+      if (row.id == id) {
+        printf("page %d", cursor->page_num);
+        print_row(&row);
+        printf("delete row of id: %d\n", id);
+        leaf_node_delete(cursor);
+      } else {
+        printf("Not found!\n");
+      }
+    }
+  }
+  free(cursor);
+
+  return EXECUTE_SUCCESS;
+}
+
 ExecuteResult execute_statement(Statement *statement, Table *table) {
   switch (statement->type) {
   case (STATEMENT_INSERT):
     return execute_insert(statement, table);
   case (STATEMENT_SELECT):
     return execute_select(statement, table);
+  case (STATEMENT_DELETE):
+    return execute_delete(statement, table);
   }
 }
 

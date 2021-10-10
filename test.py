@@ -1,3 +1,4 @@
+import sys
 import random
 import string
 
@@ -20,5 +21,7 @@ def generate_test_data(num_rows, from_id):
 
 
 if __name__ == '__main__':
-    for rid, user, email in generate_test_data(100, 1):
+    lines = int(sys.argv[1])
+    from_id = int(sys.argv[2])
+    for rid, user, email in generate_test_data(lines, from_id):
         print(rid, user, email)
